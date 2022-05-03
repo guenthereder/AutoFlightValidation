@@ -2,3 +2,4 @@ chrome*
 __*
 *.jar
 venv
+*.log
