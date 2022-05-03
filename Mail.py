@@ -19,6 +19,8 @@ class Mail:
             pilot_dict = pickle.load(f)
         if pilot_name in pilot_dict:
             return pilot_dict[pilot_name]
+        else:
+            print(f"No Mail Adress found for {pilot_name}!")
         return None
 
     @staticmethod
