@@ -1,20 +1,3 @@
-import os
-from pykml import parser
-from pykml.factory import nsmap
-
-
-def single_data_point_faulty(kml_file_name:str)->bool:
-    namespace = {"ns2": nsmap[None]}
-    with open(kml_file_name, 'r') as f:
-        root = parser.parse(f).getroot()
-
-    pms = root.findall(".//ns2:Placemark", namespaces=namespace)
-
-    for pm in pms:
-        print(pm.name)
-
-    return False
-
 
 ''' FLIGHT TR FOR SINGLE FLIGHT FOR APPROVAL
 <tr id="flight-3081471" class="  ">

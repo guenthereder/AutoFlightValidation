@@ -178,9 +178,6 @@ def scrap_approval_flight(args, driver, url):
                             print(f"VIOLATION: maybe new HG LZ -> check manually  {flight_infos['link_flight_info']}")
                         else:
                             '''check if a single data point is faulty'''
-                            if single_data_point_faulty(kml_file_name):
-                                print("Only one data point was faulty")
-
                             flights_disapproved.append(flight_infos)
                             print('VIOLATION: click disapprove and send mail with explaination', link_disapproval.get_attribute('href'), detail, kml_file_name)
                             mail = Mail(flight=flight_infos, kml_file_name=kml_file_name)
