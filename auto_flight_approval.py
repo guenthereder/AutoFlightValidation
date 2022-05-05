@@ -101,12 +101,12 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
                             print(f"APPROVED {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
 
                     elif verdict == 1:
-                        store_for_manual_eval(flight_infos=flight_infos, kml_file_name=kml_file_name)
+                        kml_file_name = store_for_manual_eval(flight_infos=flight_infos, kml_file_name=kml_file_name)
                         if args.verbose:
                             print(f"Minor-Violation {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
                     
                     else:
-                        store_for_manual_eval(flight_infos=flight_infos, kml_file_name=kml_file_name)
+                        kml_file_name = store_for_manual_eval(flight_infos=flight_infos, kml_file_name=kml_file_name)
                         flights_disapproved.append(flight_infos)
                         '''SANITY CHECKS'''
                         if args.verbose:
@@ -116,8 +116,7 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
                                 print(f"maybe new HG LZ, glider: {flight_infos['glider']}")
                         else:
                             '''check if a single data point is faulty'''
-                            #mail = Mail(flight=flight_infos, kml_file_name=kml_file_name)
-                            pass
+                            mail = Mail(flight=flight_infos, kml_file_name=kml_file_name)
                 else:
                     flights_error.append(flight_infos)
         else:
@@ -130,7 +129,7 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
     return flights_approved, flights_disapproved, flights_error, pilot_not_approved
 
 
-def store_for_manual_eval(flight_infos:dict, kml_file_name:str):
+def store_for_manual_eval(flight_infos:dict, kml_file_name:str)->str:
     date_of_flight = flight_infos['start_date']
     if ' ' in date_of_flight:
         date_of_flight = date_of_flight.split(' ')[0]
@@ -145,6 +144,9 @@ def store_for_manual_eval(flight_infos:dict, kml_file_name:str):
 
     with open(os.path.join(MANUAL_EVAL_DIR,f"{date_of_flight}_{pilot_name}_{flight_id}_info.txt"), 'w') as f:
         f.write(file_content)
+
+    return os.path.join(MANUAL_EVAL_DIR, new_kml_file_name)
+
 
 def approve_disapprove_flight(link, driver):
     link.click()
@@ -189,6 +191,7 @@ def validte_flight(igc_file_name:str)->Tuple[int,str,str]:
         kml_file_for_mail = igc_file_name + '.kml'
         return (1,verdict,kml_file_for_mail)
 
+
 def get_manual_eval_set()->set:
     ids = [f.split('_')[2] for f in os.listdir(MANUAL_EVAL_DIR) if f.endswith('.txt')]
     return set(ids)
@@ -197,7 +200,7 @@ def get_manual_eval_set()->set:
 def main():
     parser = argparse.ArgumentParser(description='XContest FlyForFun Automatic Flight Approval')
     parser.add_argument('--verbose', action="store_true", default=False, help='print debug information')
-    parser.add_argument('--num-flights', type=int, default=5, help='numbers of flights to process in one run (default: 5, 0 for all')
+    parser.add_argument('--num-flights', type=int, default=0, help='numbers of flights to process in one run (default: 0)')
     parser.add_argument('--non-headless', action="store_true", default=False, help='print debug information')
     args = parser.parse_args()
 

@@ -43,7 +43,7 @@ def init_webdriver(headless:bool=True):
         options.set_preference("browser.download.defaultFolder", ABS_DL_DIR)
         options.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/x-gzip")
 
-        binary = r'/Applications/Firefox.app/Contents/MacOS/firefox'
+        binary = FIREFOXBINPATH
         options.binary = binary
         DesiredCapabilities.FIREFOX["unexpectedAlertBehaviour"] = "accept"
         service = Service(FIREFOXPATH)
