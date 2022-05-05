@@ -9,8 +9,9 @@ from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from email.charset import Charset
 import pickle
-from __credentials import *
 import datetime as dt
+
+from __credentials import *
 
 class Mail:
     @staticmethod

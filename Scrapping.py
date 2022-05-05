@@ -1,3 +1,67 @@
+import os
+
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium.webdriver.support import expected_conditions as ec
+from selenium.webdriver.common.by import By
+
+from __credentials import *
+
+
+def login(driver):
+    wait = WebDriverWait(driver, 30)
+    driver.get(URL_LOGIN)
+    wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'submit')))
+
+    username_field = driver.find_element(by=By.ID, value="login-username")
+    password_field = driver.find_element(by=By.ID, value="login-password")
+    login = driver.find_element(by=By.CLASS_NAME, value="submit")
+
+    username_field.send_keys(username)
+    password_field.send_keys(password)
+    login.click()
+
+
+def init_webdriver(headless:bool=True):
+    """Simple Function to initialize and configure Webdriver"""
+    if FIREFOXPATH != None:
+        from selenium.webdriver.firefox.options import Options
+        from selenium.webdriver.firefox.service import Service
+
+        ABS_DL_DIR = os.path.join( os.getcwd(), DL_DIR)
+
+        options = Options()
+        options.binary = FIREFOXPATH
+        if headless:
+            options.add_argument("-headless")
+
+        options.set_preference("browser.download.folderList", 2)
+        options.set_preference("browser.download.manager.showWhenStarting", False)
+        options.set_preference("browser.download.dir", ABS_DL_DIR)
+        options.set_preference("browser.download.downloadDir", ABS_DL_DIR)
+        options.set_preference("browser.download.defaultFolder", ABS_DL_DIR)
+        options.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/x-gzip")
+
+        binary = r'/Applications/Firefox.app/Contents/MacOS/firefox'
+        options.binary = binary
+        DesiredCapabilities.FIREFOX["unexpectedAlertBehaviour"] = "accept"
+        service = Service(FIREFOXPATH)
+        return webdriver.Firefox(service=service, options=options)
+
+    elif CHROMEPATH != None:
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.chrome.service import Service
+
+        options = Options()
+        options.binary_location = CHROMEPATH
+        if headless:
+            options.add_argument("--headless")
+        prefs = {"download.default_directory" : DL_DIR}
+        options.add_experimental_option("prefs",prefs)
+        service = Service(CHROMEPATH)
+        return webdriver.Chrome(service=service, options=options, service_args=['--verbose'])
+
 
 ''' FLIGHT TR FOR SINGLE FLIGHT FOR APPROVAL
 <tr id="flight-3081471" class="  ">

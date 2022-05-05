@@ -1,86 +1,26 @@
 #!/usr/bin/env python3
 
-from __credentials import *
-from tools import *
-from Mail import Mail
-
-URL_LOGIN = "https://www.xcontest.org/"
-#URL_APPROVAL = "https://www.xcontest.org/flyforfuncup/approval/flights/"
-URL_APPROVAL = "https://www.xcontest.org/flyforfuncup/approval/flights/?filter%5Bstatus%5D=W&filter%5Bscored%5D=&filter%5B"+ \
-    "date%5D=&filter%5Bcountry%5D=&filter%5Bcatg%5D=&filter%5Bpilot%5D=&list%5Bsort%5D=pts&list%5Bdir%5D=down&filter%5Bviolation%5D=&filter%5Bairspace%5D="
-
-JAVA_CORRETTO = "/Library/Java/JavaVirtualMachines/amazon-corretto-8.jdk/Contents/Home/bin/java"
-AIR_SPACE_CHECKER = "airspace-check.jar"
-
-DL_DIR = "flights/"
-CHROMEPATH = './chromedriver'
-FIREFOXPATH = '/opt/homebrew/bin/geckodriver'
-MANUAL_EVAL_DIR = './manual_eval/'
-
-
-# for years < current_year use 'https://www.xcontest.org/YEAR/world/en/flights/'
-
-if __name__ == '__main__' and __package__ is None:
-    import os
-    __LEVEL = 1
-    os.sys.path.append(os.path.abspath(os.path.join(*([os.path.dirname(__file__)] + ['..']*__LEVEL))))
-
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as ec
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-
-
 import glob
 import os
 import subprocess
 import time
 from typing import Tuple
-
 from bs4 import BeautifulSoup
 import argparse
 
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as ec
+from selenium.common.exceptions import TimeoutException
 
-def init_webdriver(headless:bool=True):
-    """Simple Function to initialize and configure Webdriver"""
-    if FIREFOXPATH != None:
-        from selenium.webdriver.firefox.options import Options
-        from selenium.webdriver.firefox.service import Service
+from __credentials import *
+from Scrapping import *
+from Mail import Mail
 
-        ABS_DL_DIR = os.path.join( os.getcwd(), DL_DIR)
-
-        options = Options()
-        options.binary = FIREFOXPATH
-        if headless:
-            options.add_argument("-headless")
-
-        options.set_preference("browser.download.folderList", 2)
-        options.set_preference("browser.download.manager.showWhenStarting", False)
-        options.set_preference("browser.download.dir", ABS_DL_DIR)
-        options.set_preference("browser.download.downloadDir", ABS_DL_DIR)
-        options.set_preference("browser.download.defaultFolder", ABS_DL_DIR)
-        options.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/x-gzip")
-
-        binary = r'/Applications/Firefox.app/Contents/MacOS/firefox'
-        options.binary = binary
-        DesiredCapabilities.FIREFOX["unexpectedAlertBehaviour"] = "accept"
-        service = Service(FIREFOXPATH)
-        return webdriver.Firefox(service=service, options=options)
-
-    elif CHROMEPATH != None:
-        from selenium.webdriver.chrome.options import Options
-        from selenium.webdriver.chrome.service import Service
-
-        options = Options()
-        options.binary_location = CHROMEPATH
-        if headless:
-            options.add_argument("--headless")
-        prefs = {"download.default_directory" : DL_DIR}
-        options.add_experimental_option("prefs",prefs)
-        service = Service(CHROMEPATH)
-        return webdriver.Chrome(service=service, options=options, service_args=['--verbose'])
+if __name__ == '__main__' and __package__ is None:
+    import os
+    __LEVEL = 1
+    os.sys.path.append(os.path.abspath(os.path.join(*([os.path.dirname(__file__)] + ['..']*__LEVEL))))
 
 
 def scrap_approval_flight(args, driver, url, manual_eval_set:set):
@@ -225,18 +165,6 @@ def approve_disapprove_flight(link, driver):
         pass
 
 
-def login(driver):
-    wait = WebDriverWait(driver, 30)
-    driver.get(URL_LOGIN)
-    wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'submit')))
-
-    username_field = driver.find_element(by=By.ID, value="login-username")
-    password_field = driver.find_element(by=By.ID, value="login-password")
-    login = driver.find_element(by=By.CLASS_NAME, value="submit")
-
-    username_field.send_keys(username)
-    password_field.send_keys(password)
-    login.click()
 
 '''
 0: all ok
