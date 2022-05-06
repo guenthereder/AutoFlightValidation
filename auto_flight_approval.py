@@ -36,10 +36,21 @@ def get_downloaded_file()->str:
     return igc_file_name
 
 
+def get_flight_info_dict(content)->dict:
+    flight_dict = dict()
+    soup = BeautifulSoup(content, "lxml")
+    flight_list = soup.find('table', {"class": "flights wide"}).find('tbody').find_all('tr')
+    for flight in flight_list:
+        tds = flight.find_all('td')
+        assert(len(tds) == 15)
+        flight_d = get_flight_from_soup(tds)
+        flight_dict[flight_d['flight_id']] = flight_d
+    return flight_dict
+
+
 def scrap_approval_flight(args, driver, url, manual_eval_set:set):
     """ SCRAP and approve/disapprove flights """
     flights_approved, flights_disapproved, flights_error, pilot_not_approved = [], [], [], []
-    flight_dict = dict()
     driver.set_page_load_timeout(30)
 
     '''Since this is an ADMIN only page, we need to be logged in'''
@@ -50,14 +61,7 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
 
     wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'flights')))
 
-    content = driver.page_source
-    soup = BeautifulSoup(content, "lxml")
-    flight_list = soup.find('table', {"class": "flights wide"}).find('tbody').find_all('tr')
-    for flight in flight_list:
-        tds = flight.find_all('td')
-        assert(len(tds) == 15)
-        flight_d = get_flight_from_soup(tds)
-        flight_dict[flight_d['flight_id']] = flight_d
+    flight_dict = get_flight_info_dict(driver.page_source)
 
     idx = args.num_flights
 
@@ -178,9 +182,7 @@ def approve_disapprove_flight(link, driver):
 
 
 '''
-0: all ok
-1: maybe-violation
-2: vioaltion
+0: all ok / 1: should be ok / 2: vioaltion
 '''
 def validte_flight(igc_file_name:str)->Tuple[int,str,str]:
     result = subprocess.run([JAVA_CORRETTO, '-jar', AIR_SPACE_CHECKER, igc_file_name], stdout=subprocess.PIPE)
