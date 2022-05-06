@@ -23,6 +23,19 @@ if __name__ == '__main__' and __package__ is None:
     os.sys.path.append(os.path.abspath(os.path.join(*([os.path.dirname(__file__)] + ['..']*__LEVEL))))
 
 
+def get_downloaded_file()->str:
+    igc_file_name = ""
+    retry = 6
+    while (not igc_file_name.lower().endswith('.igc') or '.part' in igc_file_name) and retry > 0:
+        time.sleep(0.9)
+        list_of_files = glob.glob(os.path.join(DL_DIR,'*')) # * means all if need specific format then *.csv
+        list_of_files = [f for f in list_of_files if '*' not in f]
+        if list_of_files:
+            igc_file_name = max(list_of_files, key=os.path.getctime)
+        retry -= 1
+    return igc_file_name
+
+
 def scrap_approval_flight(args, driver, url, manual_eval_set:set):
     """ SCRAP and approve/disapprove flights """
     flights_approved, flights_disapproved, flights_error, pilot_not_approved = [], [], [], []
@@ -80,37 +93,30 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
             else:
                 link_igc.click()
 
-                igc_file_name = ""
-                retry = 5
-                while (not igc_file_name.lower().endswith('.igc') or '.part' in igc_file_name) and retry > 0:
-                    time.sleep(0.8)
-                    list_of_files = glob.glob(os.path.join(DL_DIR,'*')) # * means all if need specific format then *.csv
-                    list_of_files = [f for f in list_of_files if '*' not in f]
-                    if list_of_files:
-                        igc_file_name = max(list_of_files, key=os.path.getctime)
-                    retry -= 1
-                print(igc_file_name)
+                igc_file_name = get_downloaded_file()
+                if args.verbose:
+                    print(igc_file_name)
 
                 if os.path.isfile(igc_file_name):
                     verdict, detail, kml_file_name = validte_flight(igc_file_name)
                     
-                    if verdict == 0:
+                    if verdict == 0 or verdict == 1:
                         flights_approved.append(flight_infos)
                         approve_disapprove_flight(link=link_approval, driver=driver)
                         if args.verbose:
-                            print(f"APPROVED {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
+                            print(f"APPROVED({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
 
-                    elif verdict == 1:
-                        kml_file_name = store_for_manual_eval(flight_infos=flight_infos, kml_file_name=kml_file_name)
-                        if args.verbose:
-                            print(f"Minor-Violation {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
+                    # elif verdict == 1:
+                    #     kml_file_name = store_for_manual_eval(flight_infos=flight_infos, kml_file_name=kml_file_name)
+                    #     if args.verbose:
+                    #         print(f"Minor-Violation {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
                     
                     else:
                         kml_file_name = store_for_manual_eval(flight_infos=flight_infos, kml_file_name=kml_file_name)
                         flights_disapproved.append(flight_infos)
                         '''SANITY CHECKS'''
                         if args.verbose:
-                            print(f"VIOLATION {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
+                            print(f"VIOLATION({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
                         if 'HG' in flight_infos['glider']:
                             if args.verbose:
                                 print(f"maybe new HG LZ, glider: {flight_infos['glider']}")
@@ -136,7 +142,10 @@ def store_for_manual_eval(flight_infos:dict, kml_file_name:str)->str:
     flight_id = flight_infos['flight_id']
     pilot_name = flight_infos['pilot_name']
     new_kml_file_name = f"{date_of_flight}_{pilot_name}_{flight_id}_{kml_file_name.replace('flights/', '')}"
-    os.rename(kml_file_name, os.path.join(MANUAL_EVAL_DIR, new_kml_file_name))
+    try:
+        os.rename(kml_file_name, os.path.join(MANUAL_EVAL_DIR, new_kml_file_name))
+    except FileNotFoundError as err:
+        print(f"{new_kml_file_name} not found, with error {err}")
 
     file_content = ""
     for key in flight_infos:
