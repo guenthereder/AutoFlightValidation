@@ -13,6 +13,28 @@ import datetime as dt
 
 from __credentials import *
 
+
+import imaplib 
+import time 
+
+# message = MIMEMultipart() 
+# message['Subject'] = 'Test Draft' 
+# message['From'] = 'test@test.net' 
+# message['to'] = 'test@test.com' 
+# message['cc'] = 'testcc@test.com' 
+# message['bcc'] = 'testbcc@test.com' 
+# message.attach(MIMEText('This is a test.\n')) 
+
+# server= imaplib.IMAP4('the.ser.ver.ip') 
+# server.login('test', 'test') 
+# server.append("Drafts" 
+#               ,'\Draft' 
+#               ,imaplib.Time2Internaldate(time.time()) 
+#               ,str(message)) 
+# server.logout() 
+
+
+
 class Mail:
     @staticmethod
     def get_pilot_email(pilot_name:str)->str:
