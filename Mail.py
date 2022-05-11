@@ -10,29 +10,12 @@ from email.utils import COMMASPACE, formatdate
 from email.charset import Charset
 import pickle
 import datetime as dt
+from urllib.error import HTTPError
 
 from __credentials import *
 
-
 import imaplib 
 import time 
-
-# message = MIMEMultipart() 
-# message['Subject'] = 'Test Draft' 
-# message['From'] = 'test@test.net' 
-# message['to'] = 'test@test.com' 
-# message['cc'] = 'testcc@test.com' 
-# message['bcc'] = 'testbcc@test.com' 
-# message.attach(MIMEText('This is a test.\n')) 
-
-# server= imaplib.IMAP4('the.ser.ver.ip') 
-# server.login('test', 'test') 
-# server.append("Drafts" 
-#               ,'\Draft' 
-#               ,imaplib.Time2Internaldate(time.time()) 
-#               ,str(message)) 
-# server.logout() 
-
 
 
 class Mail:
@@ -111,14 +94,18 @@ class Mail:
             part.add_header('Content-Disposition', 'attachment', filename=filename_rfc2047)
             msg.attach(part)
 
-        # with smtplib.SMTP_SSL(host, port) as server:
-        #     if tls:
-        #         server.ehlo()
-        #         server.starttls()
-        #         server.ehlo()
 
-        #     server.login(smtp_username, smtp_password)
-        #     server.sendmail(sender, self.receiver_emails, msg.as_string())
+        # s = imaplib.IMAP4_SSL(host=imap_host, port=imap_port) 
+
+        # if smtp_username and smtp_password:
+        #     s.login(smtp_username, smtp_password)
+
+    
+        # s.append("Drafts" 
+        #               ,'\Draft' 
+        #               ,imaplib.Time2Internaldate(time.time()) 
+        #               ,msg.as_string())
+        # s.logout() 
 
         s = smtplib.SMTP(host, port)
 
@@ -130,9 +117,33 @@ class Mail:
         if smtp_username and smtp_password:
             s.login(smtp_username, smtp_password)
 
-        #print ("sending %s to %s" % (subject, headers['To']))
         s.sendmail(sender, self.receiver_emails, msg.as_string())
         s.quit()
+ 
+
+    def create_draft(service, user_id, message_body):
+        """Create and insert a draft email. Print the returned draft's message and id.
+
+        Args:
+            service: Authorized Gmail API service instance.
+            user_id: User's email address. The special value "me"
+            can be used to indicate the authenticated user.
+            message_body: The body of the email message, including headers.
+
+        Returns:
+            Draft object, including draft id and message meta data.
+        """
+        try:
+            message = {'message': message_body}
+            draft = service.users().drafts().create(userId=user_id, body=message).execute()
+
+            print('Draft id: %s\nDraft message: %s' % (draft['id'], draft['message']))
+
+            return draft
+        except HTTPError as error:
+            print('An error occurred: %s' % error)
+            return None
+
 
 
     def get_mail_body(self, flight:dict, contest="FlyForFun Cup 2022")->str:
@@ -157,42 +168,3 @@ class Mail:
     PS: Dies ist einen neue automatisierte Auswertung, wenn eine Entscheidung unklar ist oder sogar falsch bitte einfach melden.
 
     '''
-
-    # def send_email(self, subject, content, receiver:str ):
-    #     """ Send a simple, stupid, text, UTF-8 mail in Python """
-
-    #     for ill in [ "\n", "\r" ]:
-    #         subject = subject.replace(ill, ' ')
-
-    #     headers = {
-    #         'Content-Type': 'text/html; charset=utf-8',
-    #         'Content-Disposition': 'inline',
-    #         'Content-Transfer-Encoding': '8bit',
-    #         'From': sender,
-    #         'To': receiver,
-    #         'Date': dt.datetime.now().strftime('%a, %d %b %Y  %H:%M:%S %Z'),
-    #         'X-Mailer': 'python',
-    #         'Subject': subject
-    #     }
-
-    #     # create the message
-    #     msg = ''
-    #     for key, value in headers.items():
-    #         msg += "%s: %s\n" % (key, value)
-
-    #     # add contents
-    #     msg += f"\n{content}\n"
-
-    #     s = smtplib.SMTP(host, port)
-
-    #     if tls:
-    #         s.ehlo()
-    #         s.starttls()
-    #         s.ehlo()
-
-    #     if smtp_username and smtp_password:
-    #         s.login(smtp_username, smtp_password)
-
-    #     print ("sending %s to %s" % (subject, headers['To']))
-    #     s.sendmail(headers['From'], headers['To'], msg.encode("utf8"))
-    #     s.quit()
