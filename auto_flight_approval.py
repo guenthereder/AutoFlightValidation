@@ -104,7 +104,7 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
                 if os.path.isfile(igc_file_name):
                     verdict, detail, kml_file_name = validte_flight(igc_file_name)
                     
-                    if verdict == 0 or verdict == 1:
+                    if (verdict == 0 or verdict == 1) and flight_infos['points'] > 0.0:
                         flights_approved.append(flight_infos)
                         approve_disapprove_flight(link=link_approval, driver=driver)
                         if args.verbose:
@@ -210,7 +210,7 @@ def get_manual_eval_set()->set:
 
 def main():
     parser = argparse.ArgumentParser(description='XContest FlyForFun Automatic Flight Approval')
-    parser.add_argument('--verbose', action="store_true", default=False, help='print debug information')
+    parser.add_argument('-v','--verbose', action="store_true", default=False, help='print debug information')
     parser.add_argument('--num-flights', type=int, default=0, help='numbers of flights to process in one run (default: 0)')
     parser.add_argument('--non-headless', action="store_true", default=False, help='print debug information')
     args = parser.parse_args()
