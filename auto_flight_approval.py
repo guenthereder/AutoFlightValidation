@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from ast import expr_context
 import glob
 import os
 import subprocess
@@ -217,12 +218,15 @@ def main():
 
     driver = init_webdriver(headless=not args.non_headless)
 
-    manual_eval_set = get_manual_eval_set()
+    try:
+        manual_eval_set = get_manual_eval_set()
 
-    # flight scrapping
-    app, dis, err, nonpilot = scrap_approval_flight(args=args, driver=driver,url=URL_APPROVAL, manual_eval_set=manual_eval_set)
+        # flight scrapping
+        app, dis, err, nonpilot = scrap_approval_flight(args=args, driver=driver,url=URL_APPROVAL, manual_eval_set=manual_eval_set)
 
-    print(f"Approved {len(app)}, disapproved {len(dis)}, errors {len(err)}, pilot not approved {len(nonpilot)}")
+        print(f"Approved {len(app)}, disapproved {len(dis)}, errors {len(err)}, pilot not approved {len(nonpilot)}")
+    except Exception as e:
+        print(f"Error occured: {e}")
 
     driver.close()
 
