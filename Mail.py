@@ -1,4 +1,9 @@
+#!/usr/bin/env python3
+
+from __future__ import print_function
+
 from copyreg import pickle
+from email import message
 import smtplib, ssl
 from os.path import basename
 from email.mime.base import MIMEBase
@@ -11,6 +16,17 @@ from email.charset import Charset
 import pickle
 import datetime as dt
 from urllib.error import HTTPError
+import base64
+
+import os.path
+
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+
 
 from __credentials import *
 
@@ -18,7 +34,60 @@ import imaplib
 import time 
 
 
+# If modifying these scopes, delete the file token.json.
+SCOPES = ['https://www.googleapis.com/auth/gmail.compose']
+
+
 class Mail:
+    def __init__(self, flight:dict, kml_file_name:str, save_as_draft:bool=True):
+        self.receiver_emails = [self.get_pilot_email(flight['pilot_name'])]
+        self.message = self.get_mail_body(flight=flight)
+        self.files = [kml_file_name]
+
+        msg = MIMEMultipart()
+        msg['From'] = sender
+        msg['To'] = COMMASPACE.join(self.receiver_emails)
+        msg['Date'] = formatdate(localtime=True)
+        msg['Subject'] = subject
+
+        msg.attach(MIMEText(self.message))
+
+        for f in self.files:
+            mimetype, _ = guess_type(f)
+            mimetype = mimetype.split('/', 1)
+            with open(f, "rb") as fil:
+                part = MIMEBase(mimetype[0], mimetype[1])
+                part.set_payload(fil.read())
+                encode_base64(part)
+            filename_rfc2047 = self.encode_header_param(basename(f))
+
+            # The default RFC 2231 encoding of Message.add_header() works in Thunderbird but not GMail
+            # so we fix it by using RFC 2047 encoding for the filename instead.
+            part.set_param('name', filename_rfc2047)
+            part.add_header('Content-Disposition', 'attachment', filename=filename_rfc2047)
+            msg.attach(part)
+
+        if save_as_draft:
+            self.service = self.get_google_service()
+            body = {'raw': base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")}
+            
+            if self.service is not None:
+                self.create_draft(service=self.service, user_id="me", message_body=body)
+        else:
+            s = smtplib.SMTP(host, port)
+
+            if tls:
+                s.ehlo()
+                s.starttls()
+                s.ehlo()
+
+            if smtp_username and smtp_password:
+                s.login(smtp_username, smtp_password)
+
+            s.sendmail(sender, self.receiver_emails, msg.as_string())
+            s.quit()
+
+
     @staticmethod
     def get_pilot_email(pilot_name:str)->str:
         with open(PILOT_MAIL_FILE, 'rb') as f:
@@ -64,63 +133,49 @@ class Mail:
         return param_text_ascii if param_text_ascii\
             else Charset('utf8').header_encode(param_text)
 
-    def __init__(self, flight:dict, kml_file_name:str):
-        #self.receiver_emails = [flight['pilot_email']]
-        print(f"For pilot {flight['pilot_name']} we (would) send to {self.get_pilot_email(flight['pilot_name'])}")
-        self.receiver_emails = ['gue@geder.at']
-        self.message = self.get_mail_body(flight=flight)
-        self.files = [kml_file_name]
 
-        msg = MIMEMultipart()
-        msg['From'] = sender
-        msg['To'] = COMMASPACE.join(self.receiver_emails)
-        msg['Date'] = formatdate(localtime=True)
-        msg['Subject'] = subject
+    @staticmethod
+    def get_google_service():
+        creds = None
+        # The file token.json stores the user's access and refresh tokens, and is
+        # created automatically when the authorization flow completes for the first
+        # time.
+        if os.path.exists('__token.json'):
+            creds = Credentials.from_authorized_user_file('__token.json', SCOPES)
+        # If there are no (valid) credentials available, let the user log in.
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    '__credentials.json', SCOPES)
+                creds = flow.run_local_server(port=5000)
+            # Save the credentials for the next run
+            with open('__token.json', 'w') as token:
+                token.write(creds.to_json())
 
-        msg.attach(MIMEText(self.message))
+        try:
+            # Call the Gmail API # prompt='consent'
+            service = build('gmail', 'v1', credentials=creds)
+            return service
 
-        for f in self.files:
-            mimetype, _ = guess_type(f)
-            mimetype = mimetype.split('/', 1)
-            with open(f, "rb") as fil:
-                part = MIMEBase(mimetype[0], mimetype[1])
-                part.set_payload(fil.read())
-                encode_base64(part)
-            filename_rfc2047 = self.encode_header_param(basename(f))
+            results = service.users().labels().list(userId='me').execute()
+            labels = results.get('labels', [])
 
-            # The default RFC 2231 encoding of Message.add_header() works in Thunderbird but not GMail
-            # so we fix it by using RFC 2047 encoding for the filename instead.
-            part.set_param('name', filename_rfc2047)
-            part.add_header('Content-Disposition', 'attachment', filename=filename_rfc2047)
-            msg.attach(part)
+            if not labels:
+                print('No labels found.')
+            else:
+                print('Labels:')
+                for label in labels:
+                    print(label['name'])
 
+        except HttpError as error:
+            # TODO(developer) - Handle errors from gmail API.
+            print(f'An error occurred: {error}')
 
-        # s = imaplib.IMAP4_SSL(host=imap_host, port=imap_port) 
+        return None
 
-        # if smtp_username and smtp_password:
-        #     s.login(smtp_username, smtp_password)
-
-    
-        # s.append("Drafts" 
-        #               ,'\Draft' 
-        #               ,imaplib.Time2Internaldate(time.time()) 
-        #               ,msg.as_string())
-        # s.logout() 
-
-        s = smtplib.SMTP(host, port)
-
-        if tls:
-            s.ehlo()
-            s.starttls()
-            s.ehlo()
-
-        if smtp_username and smtp_password:
-            s.login(smtp_username, smtp_password)
-
-        s.sendmail(sender, self.receiver_emails, msg.as_string())
-        s.quit()
- 
-
+    @staticmethod
     def create_draft(service, user_id, message_body):
         """Create and insert a draft email. Print the returned draft's message and id.
 
@@ -145,8 +200,8 @@ class Mail:
             return None
 
 
-
-    def get_mail_body(self, flight:dict, contest="FlyForFun Cup 2022")->str:
+    @staticmethod
+    def get_mail_body(flight:dict, contest="FlyForFun Cup 2022")->str:
         return f'''Lieber {flight['pilot_name']}.
 
     Dein Wettkampfflug vom {flight['start_date']} mit {flight['points']}P / {flight['km']}km kann wegen einer Luftraumverletzung
@@ -168,3 +223,20 @@ class Mail:
     PS: Dies ist einen neue automatisierte Auswertung, wenn eine Entscheidung unklar ist oder sogar falsch bitte einfach melden.
 
     '''
+
+
+''' for testing only '''
+if __name__ == '__main__':
+    flight_dict = {
+        "pilot_name": "Günther Eder",
+        "start_date": "05.05.2022",
+        "points": 24,
+        "km": 24,
+    }
+    """Shows basic usage of the Gmail API.
+    Lists the user's Gmail labels.
+    """
+    mail = Mail(flight=flight_dict, kml_file_name="test.kml")
+
+    
+
