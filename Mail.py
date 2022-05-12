@@ -3,8 +3,7 @@
 from __future__ import print_function
 
 from copyreg import pickle
-from email import message
-import smtplib, ssl
+import smtplib
 from os.path import basename
 from email.mime.base import MIMEBase
 from mimetypes import guess_type
@@ -14,7 +13,6 @@ from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from email.charset import Charset
 import pickle
-import datetime as dt
 from urllib.error import HTTPError
 import base64
 
@@ -26,17 +24,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-
-
 from __credentials import *
-
-import imaplib 
-import time 
-
-
-# If modifying these scopes, delete the file token.json.
-SCOPES = ['https://www.googleapis.com/auth/gmail.compose']
-
 
 class Mail:
     def __init__(self, flight:dict, kml_file_name:str, save_as_draft:bool=True):
@@ -140,18 +128,18 @@ class Mail:
         # The file token.json stores the user's access and refresh tokens, and is
         # created automatically when the authorization flow completes for the first
         # time.
-        if os.path.exists('__token.json'):
-            creds = Credentials.from_authorized_user_file('__token.json', SCOPES)
+        if os.path.exists(TOKEN_FILE):
+            creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
         # If there are no (valid) credentials available, let the user log in.
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    '__credentials.json', SCOPES)
+                    CREDENTIALS_FILE, SCOPES)
                 creds = flow.run_local_server(port=5000)
             # Save the credentials for the next run
-            with open('__token.json', 'w') as token:
+            with open(TOKEN_FILE, 'w') as token:
                 token.write(creds.to_json())
 
         try:
@@ -159,18 +147,7 @@ class Mail:
             service = build('gmail', 'v1', credentials=creds)
             return service
 
-            results = service.users().labels().list(userId='me').execute()
-            labels = results.get('labels', [])
-
-            if not labels:
-                print('No labels found.')
-            else:
-                print('Labels:')
-                for label in labels:
-                    print(label['name'])
-
         except HttpError as error:
-            # TODO(developer) - Handle errors from gmail API.
             print(f'An error occurred: {error}')
 
         return None
