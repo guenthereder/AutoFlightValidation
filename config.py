@@ -1,3 +1,15 @@
+'''
+ADD THE FOLLOWING TO A __credentials.py file
+'''
+#xc_username
+#xc_password
+#smtp_username
+#smtp_password
+
+'''
+SETTINGS
+'''
+
 '''mail settings'''
 subject = 'FlyForFun Cup Luftraumverletzung'
 
