@@ -9,6 +9,6 @@ Create a `__credentials.py` file that contains `xc_username, xc_password, smtp_u
 
 ## Requirements
 
-- airspace-check [web version](https://airspace-check.appspot.com)
+- airspace-check as jar file (here is a [web version](https://airspace-check.appspot.com))
 - For the drafts to work a google account otherwise simply a mail account
 - `pip install -r requirements.txt`
