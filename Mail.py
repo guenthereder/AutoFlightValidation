@@ -24,6 +24,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from config import *
 from __credentials import *
 
 class Mail:
@@ -61,6 +62,8 @@ class Mail:
             
             if self.service is not None:
                 self.create_draft(service=self.service, user_id="me", message_body=body)
+            else:
+                print("Error: could not create google_service!")
         else:
             s = smtplib.SMTP(host, port)
 
@@ -85,6 +88,7 @@ class Mail:
         else:
             print(f"No Mail Adress found for {pilot_name}!")
         return None
+
 
     @staticmethod
     def try_coerce_ascii(string_utf8:str)->str:
@@ -210,9 +214,7 @@ if __name__ == '__main__':
         "points": 24,
         "km": 24,
     }
-    """Shows basic usage of the Gmail API.
-    Lists the user's Gmail labels.
-    """
+    """ just for testing, you have to create a test.kml file """
     mail = Mail(flight=flight_dict, kml_file_name="test.kml")
 
     

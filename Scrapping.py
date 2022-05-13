@@ -6,6 +6,7 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.by import By
 
+from config import *
 from __credentials import *
 
 
@@ -18,8 +19,8 @@ def login(driver):
     password_field = driver.find_element(by=By.ID, value="login-password")
     login = driver.find_element(by=By.CLASS_NAME, value="submit")
 
-    username_field.send_keys(username)
-    password_field.send_keys(password)
+    username_field.send_keys(xc_username)
+    password_field.send_keys(xc_password)
     login.click()
 
 

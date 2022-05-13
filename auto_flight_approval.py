@@ -111,11 +111,6 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
                         if args.verbose:
                             print(f"APPROVED({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
 
-                    # elif verdict == 1:
-                    #     kml_file_name = store_for_manual_eval(flight_infos=flight_infos, kml_file_name=kml_file_name)
-                    #     if args.verbose:
-                    #         print(f"Minor-Violation {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
-                    
                     else:
                         kml_file_name = store_for_manual_eval(flight_infos=flight_infos, kml_file_name=kml_file_name)
                         flights_disapproved.append(flight_infos)
