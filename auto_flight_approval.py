@@ -15,6 +15,7 @@ from selenium.webdriver.support import expected_conditions as ec
 from selenium.common.exceptions import TimeoutException
 
 from __credentials import *
+from config import *
 from Scrapping import *
 from Mail import Mail
 
@@ -89,8 +90,12 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
         link_approval = [l for l in a_tags if 'action=A' in l.get_attribute('href')]
         link_disapproval = [l for l in a_tags if 'action=D' in l.get_attribute('href')]
 
-        if link_igc and link_approval and link_disapproval and flight_id and flight_id in flight_dict:
-            link_igc = link_igc[0]; link_approval = link_approval[0]; link_disapproval = link_disapproval[0]
+        #print(args.disable_approval, flight_id, flight_id in flight_dict)
+
+        #if link_igc and (link_approval or args.disable_approval) and link_disapproval and flight_id and flight_id in flight_dict:
+        if link_igc and (link_approval or args.disable_approval) and flight_id and flight_id in flight_dict:
+            #print("1")
+            link_igc = link_igc[0]; #link_disapproval = link_disapproval[0]
             flight_infos = flight_dict[flight_id]
 
             if not flight_infos['pilot_approved']:
@@ -107,7 +112,8 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
                     
                     if (verdict == 0 or verdict == 1) and flight_infos['points'] > 0.0:
                         flights_approved.append(flight_infos)
-                        approve_disapprove_flight(link=link_approval, driver=driver)
+                        if not args.disable_approval:
+                            approve_disapprove_flight(link=link_approval[0], driver=driver)
                         if args.verbose:
                             print(f"APPROVED({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
 
@@ -205,13 +211,20 @@ def get_manual_eval_set()->set:
 
 
 def main():
+    global URL_APPROVAL
+    
     parser = argparse.ArgumentParser(description='XContest FlyForFun Automatic Flight Approval')
-    parser.add_argument('-v','--verbose', action="store_true", default=False, help='print debug information')
-    parser.add_argument('--num-flights', type=int, default=0, help='numbers of flights to process in one run (default: 0)')
-    parser.add_argument('--non-headless', action="store_true", default=False, help='print debug information')
+    parser.add_argument('-v','--verbose', action="store_true", default=False, help='print debug information')   
+    parser.add_argument('--disable-approval', action="store_true", default=False, help='approval link is not clicked')
+    parser.add_argument('--url', type=str, default='', help='alternate approval url')
+    parser.add_argument('--num-flights', type=int, default=0, help='number of flights to check (default: 0 = inf)')
+    parser.add_argument('--non-headless', action="store_true", default=False, help='see browser')
     args = parser.parse_args()
 
     driver = init_webdriver(headless=not args.non_headless)
+
+    if args.url != '':
+        URL_APPROVAL = args.url
 
     try:
         manual_eval_set = get_manual_eval_set()

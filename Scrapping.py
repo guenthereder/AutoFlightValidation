@@ -114,7 +114,8 @@ def get_flight_from_soup(tds)->dict:
     link_flight_info = tds[9].find('a').get('href') if tds[9].find('a') is not None else None
     airspace_info = tds[10].text
 
-    pilot_approved = tds[10].find('strong', attrs={'class': 'flight-status approved'})
+    #pilot_approved = tds[10].find('strong', attrs={'class': 'flight-status approved'})
+    pilot_approved = tds[10].find('strong', attrs={'title': 'pilot is approved'})
     pilot_approved = pilot_approved.text if pilot_approved else ""
 
     link_flight_igc = tds[11].find('a').get('href') if tds[11].find('a') is not None else None
