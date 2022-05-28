@@ -46,13 +46,14 @@ def get_flight_info_dict(content)->dict:
         tds = flight.find_all('td')
         assert(len(tds) == 15)
         flight_d = get_flight_from_soup(tds)
+        flight_d['active'] = True if 'inactive' not in flight['class'] else False
         flight_dict[flight_d['flight_id']] = flight_d
     return flight_dict
 
 
 def scrap_approval_flight(args, driver, url, manual_eval_set:set):
     """ SCRAP and approve/disapprove flights """
-    flights_approved, flights_disapproved, flights_error, pilot_not_approved = [], [], [], []
+    flights_approved, flights_disapproved, flights_error, pilot_not_approved, flight_inactive = [], [], [], [], []
     driver.set_page_load_timeout(30)
 
     '''Since this is an ADMIN only page, we need to be logged in'''
@@ -100,6 +101,8 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
 
             if not flight_infos['pilot_approved']:
                 pilot_not_approved.append(flight_infos)
+            elif not flight_infos['active']:
+                flight_inactive.append(flight_infos)
             else:
                 link_igc.click()
 
@@ -113,7 +116,8 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
                     if (verdict == 0 or verdict == 1) and flight_infos['points'] > 0.0:
                         flights_approved.append(flight_infos)
                         if not args.disable_approval:
-                            approve_disapprove_flight(link=link_approval[0], driver=driver)
+                            link_approval = link_approval[0]
+                            approve_disapprove_flight(link=link_approval, driver=driver)
                         if args.verbose:
                             print(f"APPROVED({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
 
@@ -138,7 +142,7 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
         if idx <= 0 and args.num_flights != 0:
             break
 
-    return flights_approved, flights_disapproved, flights_error, pilot_not_approved
+    return flights_approved, flights_disapproved, flights_error, pilot_not_approved, flight_inactive
 
 
 def store_for_manual_eval(flight_infos:dict, kml_file_name:str)->str:
@@ -212,7 +216,7 @@ def get_manual_eval_set()->set:
 
 def main():
     global URL_APPROVAL
-    
+
     parser = argparse.ArgumentParser(description='XContest FlyForFun Automatic Flight Approval')
     parser.add_argument('-v','--verbose', action="store_true", default=False, help='print debug information')   
     parser.add_argument('--disable-approval', action="store_true", default=False, help='approval link is not clicked')
@@ -230,9 +234,9 @@ def main():
         manual_eval_set = get_manual_eval_set()
 
         # flight scrapping
-        app, dis, err, nonpilot = scrap_approval_flight(args=args, driver=driver,url=URL_APPROVAL, manual_eval_set=manual_eval_set)
+        app, dis, err, nonpilot, inactive = scrap_approval_flight(args=args, driver=driver,url=URL_APPROVAL, manual_eval_set=manual_eval_set)
 
-        print(f"Approved {len(app)}, disapproved {len(dis)}, errors {len(err)}, pilot not approved {len(nonpilot)}")
+        print(f"Approved {len(app)}, disapproved {len(dis)}, errors {len(err)}, pilot not approved {len(nonpilot)}, flights inactive {len(inactive)}")
     except Exception as e:
         print(f"Error occured: {e}")
 
