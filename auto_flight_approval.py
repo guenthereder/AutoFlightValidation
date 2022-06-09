@@ -117,6 +117,7 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
                         flights_approved.append(flight_infos)
                         if not args.disable_approval:
                             link_approval = link_approval[0]
+                            if args.verbose: print("approving flight")
                             approve_disapprove_flight(link=link_approval, driver=driver)
                         if args.verbose:
                             print(f"APPROVED({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
