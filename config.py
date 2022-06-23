@@ -29,7 +29,7 @@ CREDENTIALS_FILE = "__google_credentials.json"
 TOKEN_FILE = "__google_token.json"
 
 '''pilot emails - dict from pilot name to pilot email'''
-PILOT_MAIL_FILE = '__pilot_email.pkl'
+PILOT_MAIL_FILE = '__pilot_email.csv'
 
 '''scrapper/airspace-check config'''
 URL_LOGIN = "https://www.xcontest.org/"

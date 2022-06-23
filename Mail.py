@@ -15,6 +15,7 @@ from email.charset import Charset
 import pickle
 from urllib.error import HTTPError
 import base64
+import csv
 
 import os.path
 
@@ -81,9 +82,12 @@ class Mail:
 
     @staticmethod
     def get_pilot_email(pilot_name:str)->str:
-        with open(PILOT_MAIL_FILE, 'rb') as f:
-            pilot_dict = pickle.load(f)
+        with open(PILOT_MAIL_FILE, mode='r') as f:
+            reader = csv.reader(f)
+            pilot_dict = {row[0]:row[1] for row in reader}
+
         if pilot_name in pilot_dict:
+            print(pilot_name, pilot_dict[pilot_name])
             return pilot_dict[pilot_name]
         else:
             print(f"No Mail Adress found for {pilot_name}!")
