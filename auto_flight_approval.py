@@ -110,7 +110,7 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
                 if args.verbose:
                     print(igc_file_name)
 
-                if os.path.isfile(igc_file_name):
+                if os.path.isfile(igc_file_name) and not args.only_download:
                     verdict, detail, kml_file_name = validte_flight(igc_file_name)
                     
                     if (verdict == 0 or verdict == 1) and flight_infos['points'] > 0.0:
@@ -221,6 +221,7 @@ def main():
     parser = argparse.ArgumentParser(description='XContest FlyForFun Automatic Flight Approval')
     parser.add_argument('-v','--verbose', action="store_true", default=False, help='print debug information')   
     parser.add_argument('--disable-approval', action="store_true", default=False, help='approval link is not clicked')
+    parser.add_argument('--only-download', action="store_true", default=False, help='only download the igc files')
     parser.add_argument('--url', type=str, default='', help='alternate approval url')
     parser.add_argument('--num-flights', type=int, default=0, help='number of flights to check (default: 0 = inf)')
     parser.add_argument('--non-headless', action="store_true", default=False, help='see browser')
