@@ -12,7 +12,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from email.charset import Charset
-import pickle
 from urllib.error import HTTPError
 import base64
 import csv

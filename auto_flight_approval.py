@@ -94,7 +94,7 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
         #print(args.disable_approval, flight_id, flight_id in flight_dict)
 
         #if link_igc and (link_approval or args.disable_approval) and link_disapproval and flight_id and flight_id in flight_dict:
-        if link_igc and (link_approval or args.disable_approval) and flight_id and flight_id in flight_dict:
+        if link_igc and (link_approval or args.disable_approval or args.only_download) and flight_id and flight_id in flight_dict:
             #print("1")
             link_igc = link_igc[0]; #link_disapproval = link_disapproval[0]
             flight_infos = flight_dict[flight_id]
@@ -137,6 +137,7 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
                 else:
                     flights_error.append(flight_infos)
         else:
+            # print(f"{link_igc} {link_approval}  {args.disable_approval} {flight_id} {flight_id in flight_dict}")
             continue
 
         idx -= 1
