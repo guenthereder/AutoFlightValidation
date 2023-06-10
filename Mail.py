@@ -7,6 +7,8 @@ import smtplib
 from os.path import basename
 from email.mime.base import MIMEBase
 from mimetypes import guess_type
+from email import encoders
+from email.header import Header
 from email.encoders import encode_base64
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -35,7 +37,9 @@ class Mail:
 
         msg = MIMEMultipart()
         msg['From'] = sender
-        msg['To'] = COMMASPACE.join(self.receiver_emails)
+        # msg['To'] = COMMASPACE.join(self.receiver_emails)
+        recipient = f"{Header(flight['pilot_name'], 'utf-8')} <{COMMASPACE.join(self.receiver_emails)}>"
+        msg['To'] = recipient
         msg['Date'] = formatdate(localtime=True)
         msg['Subject'] = subject
 
@@ -47,12 +51,14 @@ class Mail:
             with open(f, "rb") as fil:
                 part = MIMEBase(mimetype[0], mimetype[1])
                 part.set_payload(fil.read())
-                encode_base64(part)
+                encoders.encode_base64(part)
+                # encode_base64(part)
+
             filename_rfc2047 = self.encode_header_param(basename(f))
 
             # The default RFC 2231 encoding of Message.add_header() works in Thunderbird but not GMail
             # so we fix it by using RFC 2047 encoding for the filename instead.
-            part.set_param('name', filename_rfc2047)
+            # part.set_param('name', filename_rfc2047)
             part.add_header('Content-Disposition', 'attachment', filename=filename_rfc2047)
             msg.attach(part)
 
