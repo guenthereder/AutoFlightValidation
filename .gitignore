@@ -3,3 +3,7 @@ __*
 *.jar
 venv
 *.log
+node_modules
+collect
+flights
+manual_eval

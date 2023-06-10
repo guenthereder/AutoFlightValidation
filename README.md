@@ -12,3 +12,21 @@ Create a `__credentials.py` file that contains `xc_username, xc_password, smtp_u
 - airspace-check as jar file (here is a [web version](https://airspace-check.appspot.com))
 - For the drafts to work a google account otherwise simply a mail account
 - `pip install -r requirements.txt`
+
+## Google Token
+
+Obtain a new access token for google is done using `server.js`, enter project settings at the top and start with
+        node server.js
+
+Then, using browser and also add the required fields, open:
+    https://accounts.google.com/o/oauth2/auth?
+        client_id=CLIENT_ID&
+        redirect_uri=http://localhost:8000/callback&
+        response_type=code&
+        scope=https://www.googleapis.com/auth/gmail.compose&
+        access_type=offline
+
+### Requirements (node)
+
+    npm install google-auth-library
+    npm install express

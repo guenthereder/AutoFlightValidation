@@ -90,7 +90,7 @@ class Mail:
             return pilot_dict[pilot_name]
         else:
             print(f"No Mail Adress found for {pilot_name}!")
-        return None
+        return ""
 
 
     @staticmethod

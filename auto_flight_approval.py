@@ -224,8 +224,10 @@ def main():
     parser.add_argument('--disable-approval', action="store_true", default=False, help='approval link is not clicked')
     parser.add_argument('--only-download', action="store_true", default=False, help='only download the igc files')
     parser.add_argument('--url', type=str, default='', help='alternate approval url')
+    # parser.add_argument('--collect', type=str, default='trophy', help='collect flights with given string in folder collect (default: trophy)')
     parser.add_argument('--num-flights', type=int, default=0, help='number of flights to check (default: 0 = inf)')
     parser.add_argument('--non-headless', action="store_true", default=False, help='see browser')
+    parser.add_argument('--check-manual', action="store_true", default=False, help='retry all flights from manual folder')
     args = parser.parse_args()
 
     driver = init_webdriver(headless=not args.non_headless)
@@ -235,6 +237,8 @@ def main():
 
     try:
         manual_eval_set = get_manual_eval_set()
+        if args.check_manual:
+            manual_eval_set = set()
 
         # flight scrapping
         app, dis, err, nonpilot, inactive = scrap_approval_flight(args=args, driver=driver,url=URL_APPROVAL, manual_eval_set=manual_eval_set)
