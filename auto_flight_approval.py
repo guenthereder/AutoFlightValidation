@@ -81,9 +81,13 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
             continue
 
         '''check if flight is already in our manual eval directory'''
-        if flight_id in manual_eval_set:
+        if flight_id in manual_eval_set and not args.check_manual:
             if args.verbose:
                 print(f'Skipping filght {flight_id}, its already in manual.')
+        
+        if not flight_id in manual_eval_set and args.check_manual:
+            if args.verbose:
+                print(f'Skipping filght {flight_id}, its not in manual.')
             continue
 
         a_tags = row.find_elements(by=By.TAG_NAME, value="a")
@@ -128,12 +132,17 @@ def scrap_approval_flight(args, driver, url, manual_eval_set:set):
                         '''SANITY CHECKS'''
                         if args.verbose:
                             print(f"VIOLATION({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
+
                         if 'HG' in flight_infos['glider']:
                             if args.verbose:
                                 print(f"maybe new HG LZ, glider: {flight_infos['glider']}")
                         else:
                             '''check if a single data point is faulty'''
                             mail = Mail(flight=flight_infos, kml_file_name=kml_file_name)
+                            if args.enable_decline:
+                                if args.verbose:
+                                    print(f"auto decline flight: {flight_infos['flight_id']}")
+                                approve_disapprove_flight(link=link_disapproval, driver=driver) 
                 else:
                     flights_error.append(flight_infos)
         else:
@@ -228,6 +237,7 @@ def main():
     parser.add_argument('--num-flights', type=int, default=0, help='number of flights to check (default: 0 = inf)')
     parser.add_argument('--non-headless', action="store_true", default=False, help='see browser')
     parser.add_argument('--check-manual', action="store_true", default=False, help='retry all flights from manual folder')
+    parser.add_argument('--enable-decline', action="store_true", default=False, help='automatic decline flights if violation occurs')
     args = parser.parse_args()
 
     driver = init_webdriver(headless=not args.non_headless)
@@ -237,8 +247,6 @@ def main():
 
     try:
         manual_eval_set = get_manual_eval_set()
-        if args.check_manual:
-            manual_eval_set = set()
 
         # flight scrapping
         app, dis, err, nonpilot, inactive = scrap_approval_flight(args=args, driver=driver,url=URL_APPROVAL, manual_eval_set=manual_eval_set)
