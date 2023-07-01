@@ -26,6 +26,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from email.utils import formataddr
+
 from config import *
 from __credentials import *
 
@@ -38,8 +40,8 @@ class Mail:
         msg = MIMEMultipart()
         msg['From'] = sender
         # msg['To'] = COMMASPACE.join(self.receiver_emails)
-        recipient = f"{Header(flight['pilot_name'], 'utf-8')} <{COMMASPACE.join(self.receiver_emails)}>"
-        msg['To'] = recipient
+        # recipient = f"{Header(flight['pilot_name'], 'utf-8')} <{COMMASPACE.join(self.receiver_emails)}>"
+        msg['To'] = formataddr((flight['pilot_name'], self.receiver_emails[0])) if len(self.receiver_emails)>0 else "" 
         msg['Date'] = formatdate(localtime=True)
         msg['Subject'] = subject
 
