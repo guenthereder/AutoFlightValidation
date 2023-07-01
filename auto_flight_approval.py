@@ -38,6 +38,23 @@ def get_downloaded_file()->str:
     return igc_file_name
 
 
+def get_page_links(content)->list:
+    page_link_urls = []
+    soup = BeautifulSoup(content, "lxml")
+    # print(content)
+    element_paging = soup.find_all("div", {"class": "paging"})
+    if len(element_paging) > 0:
+        page_links = element_paging[0].find_all('a')
+        for page_link in page_links:
+            if page_link.has_attr('href') and str(page_link.text).isnumeric() and int(page_link.text) > 0:
+                if str(page_link['href']).startswith('http'):
+                    page_link_urls.append(page_link['href'])
+                else:
+                    page_link_urls.append("https://www.xcontest.org" + page_link['href'])
+
+    return page_link_urls
+
+
 def get_flight_info_dict(content)->dict:
     flight_dict = dict()
     soup = BeautifulSoup(content, "lxml")
@@ -51,108 +68,122 @@ def get_flight_info_dict(content)->dict:
     return flight_dict
 
 
-def scrap_approval_flight(args, driver, url, manual_eval_set:set):
+def get_all_page_urls(driver, url)->list:
+    wait = WebDriverWait(driver, 30)
+    driver.get(url)
+    wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'flights')))
+    return get_page_links(driver.page_source)
+
+
+def scrap_approval_flight(args, driver, start_url:str, manual_eval_set:set):
     """ SCRAP and approve/disapprove flights """
     flights_approved, flights_disapproved, flights_error, pilot_not_approved, flight_inactive = [], [], [], [], []
     filter_flights = []
     driver.set_page_load_timeout(30)
 
+    url_list = [start_url]
+
     '''Since this is an ADMIN only page, we need to be logged in'''
     login(driver)
 
-    wait = WebDriverWait(driver, 30)
-    driver.get(url)
+    if args.auto_page:
+        pages = get_all_page_urls(driver, start_url)
+        url_list += pages
 
-    wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'flights')))
+    for url in url_list:
+        wait = WebDriverWait(driver, 30)
+        driver.get(url)
 
-    flight_dict = get_flight_info_dict(driver.page_source)
+        wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'flights')))
 
-    idx = args.num_flights
+        flight_dict = get_flight_info_dict(driver.page_source)
 
-    tables = driver.find_element(by=By.CLASS_NAME, value="flights")
-    rows = tables.find_elements(by=By.TAG_NAME, value="tr")
-    for row in rows:
-        tds = row.find_elements(by=By.TAG_NAME, value="td")
-        flight_id = [td for td in tds if 'FLID:' in td.get_attribute('title')]
-        if flight_id:
-            flight_id = flight_id[0]
-            flight_id = flight_id.get_attribute('title').split(':')[-1]
-        else:
-            flight_id = None
-            continue
+        idx = args.num_flights
 
-        '''check if flight is already in our manual eval directory'''
-        if flight_id in manual_eval_set and not args.check_manual:
-            if args.verbose:
-                print(f'Skipping filght {flight_id}, its already in manual.')
-        
-        if not flight_id in manual_eval_set and args.check_manual:
-            if args.verbose:
-                print(f'Skipping filght {flight_id}, its not in manual.')
-            continue
-
-        a_tags = row.find_elements(by=By.TAG_NAME, value="a")
-        link_igc = [l for l in a_tags if 'IGC' in l.text.upper()]
-        link_approval = [l for l in a_tags if 'action=A' in l.get_attribute('href')]
-        link_disapproval = [l for l in a_tags if 'action=D' in l.get_attribute('href')]
-
-        #print(args.disable_approval, flight_id, flight_id in flight_dict)
-
-        #if link_igc and (link_approval or args.disable_approval) and link_disapproval and flight_id and flight_id in flight_dict:
-        if link_igc and (link_approval or args.disable_approval or args.only_download) and flight_id and flight_id in flight_dict:
-            #print("1")
-            link_igc = link_igc[0]; #link_disapproval = link_disapproval[0]
-            flight_infos = flight_dict[flight_id]
-
-            if not flight_infos['pilot_approved']:
-                pilot_not_approved.append(flight_infos)
-            elif not flight_infos['active']:
-                flight_inactive.append(flight_infos)
+        tables = driver.find_element(by=By.CLASS_NAME, value="flights")
+        rows = tables.find_elements(by=By.TAG_NAME, value="tr")
+        for row in rows:
+            tds = row.find_elements(by=By.TAG_NAME, value="td")
+            flight_id = [td for td in tds if 'FLID:' in td.get_attribute('title')]
+            if flight_id:
+                flight_id = flight_id[0]
+                flight_id = flight_id.get_attribute('title').split(':')[-1]
             else:
-                link_igc.click()
+                flight_id = None
+                continue
 
-                igc_file_name = get_downloaded_file()
+            '''check if flight is already in our manual eval directory'''
+            if flight_id in manual_eval_set and not args.check_manual:
                 if args.verbose:
-                    print(igc_file_name)
+                    print(f'Skipping filght {flight_id}, its already in manual.')
+            
+            if not flight_id in manual_eval_set and args.check_manual:
+                if args.verbose:
+                    print(f'Skipping filght {flight_id}, its not in manual.')
+                continue
 
-                if os.path.isfile(igc_file_name) and not args.only_download:
-                    verdict, detail, kml_file_name = validte_flight(igc_file_name)
-                    
-                    if (verdict == 0 or verdict == 1) and flight_infos['points'] > 0.0:
-                        flights_approved.append(flight_infos)
-                        if not args.disable_approval:
-                            link_approval = link_approval[0]
-                            if args.verbose: print("approving flight")
-                            approve_disapprove_flight(link=link_approval, driver=driver)
-                        if args.verbose:
-                            print(f"APPROVED({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
+            a_tags = row.find_elements(by=By.TAG_NAME, value="a")
+            link_igc = [l for l in a_tags if 'IGC' in l.text.upper()]
+            link_approval = [l for l in a_tags if 'action=A' in l.get_attribute('href')]
+            link_disapproval = [l for l in a_tags if 'action=D' in l.get_attribute('href')]
 
-                    else:
-                        kml_file_name = store_for_manual_eval(flight_infos=flight_infos, kml_file_name=kml_file_name)
-                        flights_disapproved.append(flight_infos)
-                        '''SANITY CHECKS'''
-                        if args.verbose:
-                            print(f"VIOLATION({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
+            #print(args.disable_approval, flight_id, flight_id in flight_dict)
 
-                        if 'HG' in flight_infos['glider']:
-                            if args.verbose:
-                                print(f"maybe new HG LZ, glider: {flight_infos['glider']}")
-                        else:
-                            '''check if a single data point is faulty'''
-                            mail = Mail(flight=flight_infos, kml_file_name=kml_file_name)
-                            if args.enable_decline:
-                                if args.verbose:
-                                    print(f"auto decline flight: {flight_infos['flight_id']}")
-                                approve_disapprove_flight(link=link_disapproval, driver=driver) 
+            #if link_igc and (link_approval or args.disable_approval) and link_disapproval and flight_id and flight_id in flight_dict:
+            if link_igc and (link_approval or args.disable_approval or args.only_download) and flight_id and flight_id in flight_dict:
+                #print("1")
+                link_igc = link_igc[0]; #link_disapproval = link_disapproval[0]
+                flight_infos = flight_dict[flight_id]
+
+                if not flight_infos['pilot_approved']:
+                    pilot_not_approved.append(flight_infos)
+                elif not flight_infos['active']:
+                    flight_inactive.append(flight_infos)
                 else:
-                    flights_error.append(flight_infos)
-        else:
-            # print(f"{link_igc} {link_approval}  {args.disable_approval} {flight_id} {flight_id in flight_dict}")
-            continue
+                    link_igc.click()
 
-        idx -= 1
-        if idx <= 0 and args.num_flights != 0:
-            break
+                    igc_file_name = get_downloaded_file()
+                    if args.verbose:
+                        print(igc_file_name)
+
+                    if os.path.isfile(igc_file_name) and not args.only_download:
+                        verdict, detail, kml_file_name = validte_flight(igc_file_name)
+                        
+                        if (verdict == 0 or verdict == 1) and flight_infos['points'] > 0.0:
+                            flights_approved.append(flight_infos)
+                            if not args.disable_approval:
+                                link_approval = link_approval[0]
+                                if args.verbose: print("approving flight")
+                                approve_disapprove_flight(link=link_approval, driver=driver)
+                            if args.verbose:
+                                print(f"APPROVED({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
+
+                        else:
+                            kml_file_name = store_for_manual_eval(flight_infos=flight_infos, kml_file_name=kml_file_name)
+                            flights_disapproved.append(flight_infos)
+                            '''SANITY CHECKS'''
+                            if args.verbose:
+                                print(f"VIOLATION({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
+
+                            if 'HG' in flight_infos['glider']:
+                                if args.verbose:
+                                    print(f"maybe new HG LZ, glider: {flight_infos['glider']}")
+                            else:
+                                '''check if a single data point is faulty'''
+                                mail = Mail(flight=flight_infos, kml_file_name=kml_file_name)
+                                if args.enable_decline:
+                                    if args.verbose:
+                                        print(f"auto decline flight: {flight_infos['flight_id']}")
+                                    approve_disapprove_flight(link=link_disapproval, driver=driver) 
+                    else:
+                        flights_error.append(flight_infos)
+            else:
+                # print(f"{link_igc} {link_approval}  {args.disable_approval} {flight_id} {flight_id in flight_dict}")
+                continue
+
+            idx -= 1
+            if idx <= 0 and args.num_flights != 0:
+                break
 
     return flights_approved, flights_disapproved, flights_error, pilot_not_approved, flight_inactive
 
@@ -234,24 +265,24 @@ def main():
     parser.add_argument('--disable-approval', action="store_true", default=False, help='approval link is not clicked')
     parser.add_argument('--only-download', action="store_true", default=False, help='only download the igc files')
     parser.add_argument('--filter', type=str, default=None, help=f'store flights in directory \'{FILTER_DIR}\' if <pattern> is contained in flight description')
-    parser.add_argument('--url', type=str, default='', help=f'alternate approval url (default: {URL_APPROVAL})')
-    # parser.add_argument('--collect', type=str, default='trophy', help='collect flights with given string in folder collect (default: trophy)')
+    parser.add_argument('--url', type=str, default=None, help=f'alternate approval url (default: {URL_APPROVAL})')
     parser.add_argument('--num-flights', type=int, default=0, help='number of flights to check (default: 0 = inf)')
     parser.add_argument('--non-headless', action="store_true", default=False, help='see browser')
+    parser.add_argument('--auto-page', action="store_true", default=False, help='try to iterate over all pages')
     parser.add_argument('--check-manual', action="store_true", default=False, help=f'retry all flights from folder {MANUAL_EVAL_DIR}')
     parser.add_argument('--enable-decline', action="store_true", default=False, help='automatic decline flights if violation occurs')
     args = parser.parse_args()
 
     driver = init_webdriver(headless=not args.non_headless)
 
-    if args.url != '':
+    if args.url:
         URL_APPROVAL = args.url
 
     try:
         manual_eval_set = get_manual_eval_set()
 
         # flight scrapping
-        app, dis, err, nonpilot, inactive = scrap_approval_flight(args=args, driver=driver,url=URL_APPROVAL, manual_eval_set=manual_eval_set)
+        app, dis, err, nonpilot, inactive = scrap_approval_flight(args=args, driver=driver,start_url=URL_APPROVAL, manual_eval_set=manual_eval_set)
 
         print(f"Approved {len(app)}, disapproved {len(dis)}, errors {len(err)}, pilot not approved {len(nonpilot)}, flights inactive {len(inactive)}")
     except Exception as e:
