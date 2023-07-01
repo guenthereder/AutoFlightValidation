@@ -38,10 +38,21 @@ def get_downloaded_file()->str:
     return igc_file_name
 
 
+def get_page_description(content)->str:
+    page_description:str = None
+    soup = BeautifulSoup(content, "lxml")
+    element_info = soup.find_all("div", {"class": "XCmoreInfo"})
+    if len(element_info) > 0:
+        description = element_info[0].find_all("div", {"class": "wsw"})
+        if len(description) > 0 and description[0]:
+            page_description = description[0].text
+
+    return page_description
+
+
 def get_page_links(content)->list:
     page_link_urls = []
     soup = BeautifulSoup(content, "lxml")
-    # print(content)
     element_paging = soup.find_all("div", {"class": "paging"})
     if len(element_paging) > 0:
         page_links = element_paging[0].find_all('a')
@@ -75,10 +86,40 @@ def get_all_page_urls(driver, url)->list:
     return get_page_links(driver.page_source)
 
 
+def get_flight_description(driver, args, url:str)->str:
+    try:
+        wait = WebDriverWait(driver, 10)
+        driver.get(url)
+        wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'XCtabs')))
+    except:
+        if args.verbose:
+            print(f"Error on flight description check, lets retry once")
+        try:
+            wait = WebDriverWait(driver, 10)
+            driver.get(url)
+            wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'XCtabs')))
+        except:
+            if args.verbose:
+                print(f"Error on (same) flight link {url}, check manually, continue")            
+
+    return get_page_description(driver.page_source)
+
+
+def check_and_filter_flights(driver, args, flight_dict:dict, km_min:int=15)->list:
+    filtered_moves = []
+    for flight_id, flight in flight_dict.items():
+        url = flight['link_flight_info'] if str(flight['link_flight_info']).startswith('http') else "https://www.xcontest.org" + flight['link_flight_info']
+        if km_min < 1 or flight['km'] > km_min:
+            flight_description = get_flight_description(driver, args, url)
+            if flight_description and args.filter in flight_description.lower():
+                filtered_moves.append(flight)
+
+    return filtered_moves
+
 def scrap_approval_flight(args, driver, start_url:str, manual_eval_set:set):
     """ SCRAP and approve/disapprove flights """
     flights_approved, flights_disapproved, flights_error, pilot_not_approved, flight_inactive = [], [], [], [], []
-    filter_flights = []
+    filtered_flights = []
     driver.set_page_load_timeout(30)
 
     url_list = [start_url]
@@ -97,6 +138,10 @@ def scrap_approval_flight(args, driver, start_url:str, manual_eval_set:set):
         wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'flights')))
 
         flight_dict = get_flight_info_dict(driver.page_source)
+
+        if args.filter:
+            filtered_flights.extend(check_and_filter_flights(driver, args, flight_dict))
+            continue
 
         idx = args.num_flights
 
@@ -185,7 +230,7 @@ def scrap_approval_flight(args, driver, start_url:str, manual_eval_set:set):
             if idx <= 0 and args.num_flights != 0:
                 break
 
-    return flights_approved, flights_disapproved, flights_error, pilot_not_approved, flight_inactive
+    return flights_approved, flights_disapproved, flights_error, pilot_not_approved, flight_inactive, filtered_flights
 
 
 def store_for_manual_eval(flight_infos:dict, kml_file_name:str)->str:
@@ -257,6 +302,12 @@ def get_manual_eval_set()->set:
     return set(ids)
 
 
+def write_filtered_flights_to_file(filtered_flights, file_name:str = "filtered_flights.csv"):
+    with open(file_name, '+a') as f:
+        for flight in filtered_flights:
+            f.write(f"{flight['flight_id']};{flight['pilot_name']};{'https://www.xcontest.org' + flight['link_flight_info']};{flight['km']}\r\n")
+
+
 def main():
     global URL_APPROVAL
 
@@ -264,12 +315,12 @@ def main():
     parser.add_argument('-v','--verbose', action="store_true", default=False, help='print debug information')   
     parser.add_argument('--disable-approval', action="store_true", default=False, help='approval link is not clicked')
     parser.add_argument('--only-download', action="store_true", default=False, help='only download the igc files')
-    parser.add_argument('--filter', type=str, default=None, help=f'store flights in directory \'{FILTER_DIR}\' if <pattern> is contained in flight description')
-    parser.add_argument('--url', type=str, default=None, help=f'alternate approval url (default: {URL_APPROVAL})')
+    parser.add_argument('--filter', type=str, default=None, help=f'store flights in directory \'filter\' if <pattern> is contained in flight description')
+    parser.add_argument('--url', type=str, default=None, help=f'alternate approval url')
     parser.add_argument('--num-flights', type=int, default=0, help='number of flights to check (default: 0 = inf)')
     parser.add_argument('--non-headless', action="store_true", default=False, help='see browser')
     parser.add_argument('--auto-page', action="store_true", default=False, help='try to iterate over all pages')
-    parser.add_argument('--check-manual', action="store_true", default=False, help=f'retry all flights from folder {MANUAL_EVAL_DIR}')
+    parser.add_argument('--check-manual', action="store_true", default=False, help=f'retry all flights from folder \'manual\'')
     parser.add_argument('--enable-decline', action="store_true", default=False, help='automatic decline flights if violation occurs')
     args = parser.parse_args()
 
@@ -282,9 +333,13 @@ def main():
         manual_eval_set = get_manual_eval_set()
 
         # flight scrapping
-        app, dis, err, nonpilot, inactive = scrap_approval_flight(args=args, driver=driver,start_url=URL_APPROVAL, manual_eval_set=manual_eval_set)
+        app, dis, err, nonpilot, inactive, filtered_flights = scrap_approval_flight(args=args, driver=driver,start_url=URL_APPROVAL, manual_eval_set=manual_eval_set)
 
-        print(f"Approved {len(app)}, disapproved {len(dis)}, errors {len(err)}, pilot not approved {len(nonpilot)}, flights inactive {len(inactive)}")
+        print(f"Approved {len(app)}, disapproved {len(dis)}, errors {len(err)}, pilot not approved {len(nonpilot)}, flights inactive {len(inactive)}, flights filtered {len(filtered_flights)}")
+    
+        if args.filter and filtered_flights:
+            write_filtered_flights_to_file(filtered_flights=filtered_flights)
+
     except Exception as e:
         print(f"Error occured: {e}")
 
