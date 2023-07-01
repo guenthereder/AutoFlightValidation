@@ -33,7 +33,8 @@ PILOT_MAIL_FILE = '__pilot_email.csv'
 
 '''scrapper/airspace-check config'''
 URL_LOGIN = "https://www.xcontest.org/"
-URL_APPROVAL = "https://www.xcontest.org/flyforfuncup/approval/flights/?filter%5Bstatus%5D=W&filter%5Bscored%5D=&filter%5Bdate%5D=&filter%5Bcountry%5D=&filter%5Bcatg%5D=&filter%5Bpilot%5D=&list%5Bsort%5D=pts&list%5Bdir%5D=down&filter%5Bviolation%5D=&filter%5Bairspace%5D="
+#URL_APPROVAL = "https://www.xcontest.org/flyforfuncup/approval/flights/?filter%5Bstatus%5D=W&filter%5Bscored%5D=&filter%5Bdate%5D=&filter%5Bcountry%5D=&filter%5Bcatg%5D=&filter%5Bpilot%5D=&list%5Bsort%5D=pts&list%5Bdir%5D=down&filter%5Bviolation%5D=&filter%5Bairspace%5D="
+URL_APPROVAL = "https://www.xcontest.org/flyforfuncup/approval/flights/?filter%5Bstatus%5D=W&filter%5Bscored%5D=Y&filter%5Bdate%5D=&filter%5Bcountry%5D=&filter%5Bcatg%5D=&filter%5Bpilot%5D=&list%5Bsort%5D=pts&list%5Bdir%5D=down&filter%5Bviolation%5D=&filter%5Bairspace%5D="
 JAVA_CORRETTO = "/Library/Java/JavaVirtualMachines/amazon-corretto-8.jdk/Contents/Home/bin/java"
 '''the actual airspace checker'''
 AIR_SPACE_CHECKER = "airspace-check.jar"
@@ -43,3 +44,4 @@ CHROMEPATH = './chromedriver'
 FIREFOXPATH = '/opt/homebrew/bin/geckodriver'
 FIREFOXBINPATH = r'/Applications/Firefox.app/Contents/MacOS/firefox'
 MANUAL_EVAL_DIR = './manual_eval/'
+FILTER_DIR = './filter/'
