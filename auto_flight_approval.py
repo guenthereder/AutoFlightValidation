@@ -8,6 +8,7 @@ import time
 from typing import Tuple
 from bs4 import BeautifulSoup
 import argparse
+from time import sleep
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -86,21 +87,24 @@ def get_all_page_urls(driver, url)->list:
     return get_page_links(driver.page_source)
 
 
-def get_flight_description(driver, args, url:str)->str:
-    try:
-        wait = WebDriverWait(driver, 10)
-        driver.get(url)
-        wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'XCtabs')))
-    except:
-        if args.verbose:
-            print(f"Error on flight description check, lets retry once")
+def get_flight_description(driver, args, url:str, retries:int=3, wait_time:int = 5)->str:
+    error_file_name = 'manual_flight_description_check.txt'
+    while retries > 0:
         try:
             wait = WebDriverWait(driver, 10)
             driver.get(url)
             wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'XCtabs')))
         except:
+            retries-=1
             if args.verbose:
-                print(f"Error on (same) flight link {url}, check manually, continue")            
+                print(f"Warning on flight description check, lets wait {wait_time} min and retry ")
+            sleep(wait_time * 60)
+
+    if retries == 0:
+        if args.verbose:
+            print(f"Error on flight description check, {url} check manually ")
+        with open(error_file_name, '+a') as f:
+            f.write(url + "\r\n")
 
     return get_page_description(driver.page_source)
 
