@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.proxy import Proxy, ProxyType
 
 from config import *
 from __credentials import *
@@ -24,7 +25,7 @@ def login(driver):
     login.click()
 
 
-def init_webdriver(headless:bool=True):
+def init_webdriver(headless:bool=True, option_proxy:str=None):
     """Simple Function to initialize and configure Webdriver"""
     if FIREFOXPATH != None:
         from selenium.webdriver.firefox.options import Options
@@ -44,6 +45,17 @@ def init_webdriver(headless:bool=True):
         options.set_preference("browser.download.defaultFolder", ABS_DL_DIR)
         options.set_preference("browser.helperApps.neverAsk.saveToDisk", "application/x-gzip")
 
+        if option_proxy:
+            webdriver.DesiredCapabilities.FIREFOX['proxy'] = {
+                "httpProxy":option_proxy,
+                "ftpProxy":option_proxy,
+                "sslProxy":option_proxy,
+                "noProxy":None,
+                "proxyType":"MANUAL",
+                "class":"org.openqa.selenium.Proxy",
+                "autodetect":False
+            }
+        
         binary = FIREFOXBINPATH
         options.binary = binary
         DesiredCapabilities.FIREFOX["unexpectedAlertBehaviour"] = "accept"

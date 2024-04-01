@@ -9,6 +9,10 @@ from typing import Tuple
 from bs4 import BeautifulSoup
 import argparse
 from time import sleep
+import pandas as pd
+
+import signal
+import sys
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -87,20 +91,24 @@ def get_all_page_urls(driver, url)->list:
     return get_page_links(driver.page_source)
 
 
-def get_flight_description(driver, args, url:str, retries:int=3, wait_time:int = 5)->str:
+def get_flight_description(driver, args, url:str, retries:int=2, wait_time:int = 2)->str:
     error_file_name = 'manual_flight_description_check.txt'
     while retries > 0:
         try:
-            wait = WebDriverWait(driver, 10)
+            sleep(2) # we have to wait, xcontest really does not like accessing the flights page to often
+            wait = WebDriverWait(driver, 15)
             driver.get(url)
-            wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'XCtabs')))
+            wait.until(ec.element_to_be_clickable((By.CLASS_NAME, 'XCmoreInfo')))
+            retries = 0
         except:
-            retries-=1
+            #retries-=1
+            retries = 0
             if args.verbose:
-                print(f"Warning on flight description check, lets wait {wait_time} min and retry ")
-            sleep(wait_time * 60)
+                print(f"No data received, skipping flight {url}")
+                # print(f"Warning on flight description check, lets wait {wait_time} min and retry ")
+            # sleep(wait_time * 60)
 
-    if retries == 0:
+    if retries == 0 and not driver.page_source:
         if args.verbose:
             print(f"Error on flight description check, {url} check manually ")
         with open(error_file_name, '+a') as f:
@@ -111,12 +119,31 @@ def get_flight_description(driver, args, url:str, retries:int=3, wait_time:int =
 
 def check_and_filter_flights(driver, args, flight_dict:dict, km_min:int=15)->list:
     filtered_moves = []
-    for flight_id, flight in flight_dict.items():
+    checked = set()
+
+    filter_file_name_links = f'FILTER_{args.filter}_LINKSONLY.txt'
+    filter_file_name = f'FILTER_{args.filter}.txt'
+    if os.path.isfile(filter_file_name):
+        with open(filter_file_name, 'r+') as file:
+            lines = [line.rstrip() for line in file]
+            [checked.add(l) for l in lines]
+
+    for flight_id, flight in flight_dict.items():        
         url = flight['link_flight_info'] if str(flight['link_flight_info']).startswith('http') else "https://www.xcontest.org" + flight['link_flight_info']
         if km_min < 1 or flight['km'] > km_min:
-            flight_description = get_flight_description(driver, args, url)
-            if flight_description and args.filter in flight_description.lower():
-                filtered_moves.append(flight)
+            if flight_id in checked:
+                continue
+            if not args.only_flight_links:
+                flight_description = get_flight_description(driver, args, url)
+                if flight_description and args.filter in flight_description.lower():
+                    filtered_moves.append(flight)
+                checked.add(flight_id)
+                with open(filter_file_name, 'w+') as file:
+                    file.writelines(checked)
+            else:
+                with open(filter_file_name_links, 'a+') as file:
+                    file.write("https://www.xcontest.org" + flight['link_flight_info'] + "\n")
+            
 
     return filtered_moves
 
@@ -278,6 +305,10 @@ def approve_disapprove_flight(link, driver):
         pass
 
 
+# def signal_handler(sig, frame):
+#     print('You pressed Ctrl+C!')
+#     sys.exit(0)
+
 
 '''
 0: all ok / 1: should be ok / 2: vioaltion
@@ -312,23 +343,53 @@ def write_filtered_flights_to_file(filtered_flights, file_name:str = "filtered_f
             f.write(f"{flight['flight_id']};{flight['pilot_name']};{'https://www.xcontest.org' + flight['link_flight_info']};{flight['km']}\r\n")
 
 
+SIG_INT_COUNT = 1
+
+def filter_flights_by_url(args, driver):
+    driver.set_page_load_timeout(30)
+    filtered_flights = []
+    if os.path.exists(args.filter_file):
+        with open(args.filter_file, 'r') as file:
+            flight_urls = [line.rstrip() for line in file]
+            for url in flight_urls:
+                if args.verbose:
+                    print(f"checking {url}")
+                flight_description = get_flight_description(driver, args, url)
+                if args.verbose:
+                    print(f"-- {flight_description}")
+                if flight_description and args.filter in flight_description.lower():
+                    filtered_flights.append(url)
+    
+    with open(str(args.filter_file).replace('.txt','_candidate.txt'), '+a') as f:
+        for flight_url in filtered_flights:
+            f.write(f"{flight_url}\r\n")
+
+    return None    
+
+
 def main():
     global URL_APPROVAL
+    # global SIG_INT_COUNT
+
+    app, dis, err, nonpilot, inactive, filtered_flights = [], [], [], [], [], []
 
     parser = argparse.ArgumentParser(description='XContest FlyForFun Automatic Flight Approval')
     parser.add_argument('-v','--verbose', action="store_true", default=False, help='print debug information')   
     parser.add_argument('--disable-approval', action="store_true", default=False, help='approval link is not clicked')
     parser.add_argument('--only-download', action="store_true", default=False, help='only download the igc files')
+    parser.add_argument('--filter-file', type=str, default=None, help=f'input file to read the flight urls from')
     parser.add_argument('--filter', type=str, default=None, help=f'store flights in directory \'filter\' if <pattern> is contained in flight description')
+    parser.add_argument('--only-flight-links', action="store_true", default=False, help='if filter is active, we only collect the flight links in a file')
     parser.add_argument('--url', type=str, default=None, help=f'alternate approval url')
     parser.add_argument('--num-flights', type=int, default=0, help='number of flights to check (default: 0 = inf)')
     parser.add_argument('--non-headless', action="store_true", default=False, help='see browser')
     parser.add_argument('--auto-page', action="store_true", default=False, help='try to iterate over all pages')
     parser.add_argument('--check-manual', action="store_true", default=False, help=f'retry all flights from folder \'manual\'')
     parser.add_argument('--enable-decline', action="store_true", default=False, help='automatic decline flights if violation occurs')
+    parser.add_argument('--proxy', type=str, default=None, help='enter ip:port to use as proxy (default: off)')
     args = parser.parse_args()
 
-    driver = init_webdriver(headless=not args.non_headless)
+    driver = init_webdriver(headless=not args.non_headless, option_proxy=args.proxy)
 
     if args.url:
         URL_APPROVAL = args.url
@@ -336,8 +397,11 @@ def main():
     try:
         manual_eval_set = get_manual_eval_set()
 
-        # flight scrapping
-        app, dis, err, nonpilot, inactive, filtered_flights = scrap_approval_flight(args=args, driver=driver,start_url=URL_APPROVAL, manual_eval_set=manual_eval_set)
+        if not args.filter_file:
+            # flight scrapping
+            app, dis, err, nonpilot, inactive, filtered_flights = scrap_approval_flight(args=args, driver=driver,start_url=URL_APPROVAL, manual_eval_set=manual_eval_set)
+        else:
+            filtered_flights = filter_flights_by_url(args=args, driver=driver)
 
         print(f"Approved {len(app)}, disapproved {len(dis)}, errors {len(err)}, pilot not approved {len(nonpilot)}, flights inactive {len(inactive)}, flights filtered {len(filtered_flights)}")
     
