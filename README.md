@@ -7,6 +7,8 @@ Feel free to fork and repurpose this code.
 
 Create a `__credentials.py` file that contains `xc_username, xc_password, smtp_username, smtp_password` everything else can be found in the `config.py` file.
 
+Note: we auto approve flights below 10km distance as the overhead for many flights is to hight and as these flights wont end up on the final competition score anyway. This can be set in the `config.py` using the `MINIMAL_VALIDATION_DISTANCE` variable.
+
 ## Requirements
 
 - airspace-check as jar file (here is a [web version](https://airspace-check.appspot.com))

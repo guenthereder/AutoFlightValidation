@@ -31,6 +31,9 @@ TOKEN_FILE = "__google_token.json"
 '''pilot emails - dict from pilot name to pilot email'''
 PILOT_MAIL_FILE = '__pilot_email.csv'
 
+'''settings'''
+MINIMAL_VALIDATION_DISTANCE = 10 # km
+
 '''scrapper/airspace-check config'''
 URL_LOGIN = "https://www.xcontest.org/"
 #URL_APPROVAL = "https://www.xcontest.org/flyforfuncup/approval/flights/?filter%5Bstatus%5D=W&filter%5Bscored%5D=&filter%5Bdate%5D=&filter%5Bcountry%5D=&filter%5Bcatg%5D=&filter%5Bpilot%5D=&list%5Bsort%5D=pts&list%5Bdir%5D=down&filter%5Bviolation%5D=&filter%5Bairspace%5D="

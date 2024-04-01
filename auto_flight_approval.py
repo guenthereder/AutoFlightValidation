@@ -18,6 +18,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import StaleElementReferenceException
 
 from __credentials import *
 from config import *
@@ -176,18 +177,18 @@ def scrap_approval_flight(args, driver, start_url:str, manual_eval_set:set):
 
         idx = args.num_flights
 
+        '''Step I: get all flight ids of the current page (we later need the approval links)'''
         tables = driver.find_element(by=By.CLASS_NAME, value="flights")
         rows = tables.find_elements(by=By.TAG_NAME, value="tr")
+        flight_ids_on_page = []
         for row in rows:
             tds = row.find_elements(by=By.TAG_NAME, value="td")
             flight_id = [td for td in tds if 'FLID:' in td.get_attribute('title')]
-            if flight_id:
-                flight_id = flight_id[0]
-                flight_id = flight_id.get_attribute('title').split(':')[-1]
-            else:
-                flight_id = None
-                continue
+            if flight_id and flight_id[0]:
+                flight_ids_on_page.append(flight_id[0].get_attribute('title').split(':')[-1])
 
+        '''Step II: check flights, if we approve we reload the page, this way we do not have to re-crawl the content'''
+        for flight_id in flight_ids_on_page:
             '''check if flight is already in our manual eval directory'''
             if flight_id in manual_eval_set and not args.check_manual:
                 if args.verbose:
@@ -198,12 +199,14 @@ def scrap_approval_flight(args, driver, start_url:str, manual_eval_set:set):
                     print(f'Skipping filght {flight_id}, its not in manual.')
                 continue
 
+            tables = WebDriverWait(driver, 10).until(ec.element_to_be_clickable((By.CLASS_NAME, "flights")))
+            rows = [row for row in tables.find_elements(by=By.TAG_NAME, value="tr") if any([f'FLID:{flight_id}' in td.get_attribute('title') for td in row.find_elements(by=By.TAG_NAME, value="td")])]
+            row = rows[0]
+
             a_tags = row.find_elements(by=By.TAG_NAME, value="a")
             link_igc = [l for l in a_tags if 'IGC' in l.text.upper()]
             link_approval = [l for l in a_tags if 'action=A' in l.get_attribute('href')]
             link_disapproval = [l for l in a_tags if 'action=D' in l.get_attribute('href')]
-
-            #print(args.disable_approval, flight_id, flight_id in flight_dict)
 
             #if link_igc and (link_approval or args.disable_approval) and link_disapproval and flight_id and flight_id in flight_dict:
             if link_igc and (link_approval or args.disable_approval or args.only_download) and flight_id and flight_id in flight_dict:
@@ -216,14 +219,19 @@ def scrap_approval_flight(args, driver, start_url:str, manual_eval_set:set):
                 elif not flight_infos['active']:
                     flight_inactive.append(flight_infos)
                 else:
-                    link_igc.click()
+                    do_flight_validation = flight_infos['km'] > MINIMAL_VALIDATION_DISTANCE
+                    igc_file_name = None
+                    if do_flight_validation:
+                        link_igc.click()
 
-                    igc_file_name = get_downloaded_file()
-                    if args.verbose:
-                        print(igc_file_name)
+                        igc_file_name = get_downloaded_file()
+                        if args.verbose:
+                            print(igc_file_name)
 
-                    if os.path.isfile(igc_file_name) and not args.only_download:
-                        verdict, detail, kml_file_name = validte_flight(igc_file_name)
+                    if not do_flight_validation or (os.path.isfile(igc_file_name) and not args.only_download):
+                        verdict, detail, kml_file_name = 0, None, ""
+                        if do_flight_validation:
+                            verdict, detail, kml_file_name = validate_flight(igc_file_name)
                         
                         if (verdict == 0 or verdict == 1) and flight_infos['points'] > 0.0:
                             flights_approved.append(flight_infos)
@@ -231,6 +239,7 @@ def scrap_approval_flight(args, driver, start_url:str, manual_eval_set:set):
                                 link_approval = link_approval[0]
                                 if args.verbose: print("approving flight")
                                 approve_disapprove_flight(link=link_approval, driver=driver)
+                                time.sleep(5.0)
                             if args.verbose:
                                 print(f"APPROVED({verdict}) {flight_infos['pilot_name']} glider {flight_infos['glider']} {flight_infos['points']} p. and {flight_infos['km']} km")
 
@@ -287,7 +296,11 @@ def store_for_manual_eval(flight_infos:dict, kml_file_name:str)->str:
 
 
 def approve_disapprove_flight(link, driver):
-    link.click()
+    try:
+        link.click()
+    except StaleElementReferenceException:
+        print(f"WARNING: StaleElementReferenceException, retry link otherwise manually click url: {link}")
+        # link.click()
     '''first popup to be sure to approve'''
     try:
         WebDriverWait(driver, 5).until (ec.alert_is_present())
@@ -304,7 +317,6 @@ def approve_disapprove_flight(link, driver):
     except TimeoutException:
         pass
 
-
 # def signal_handler(sig, frame):
 #     print('You pressed Ctrl+C!')
 #     sys.exit(0)
@@ -313,7 +325,7 @@ def approve_disapprove_flight(link, driver):
 '''
 0: all ok / 1: should be ok / 2: vioaltion
 '''
-def validte_flight(igc_file_name:str)->Tuple[int,str,str]:
+def validate_flight(igc_file_name:str)->Tuple[int,str,str]:
     result = subprocess.run([JAVA_CORRETTO, '-jar', AIR_SPACE_CHECKER, igc_file_name], stdout=subprocess.PIPE)
     verdict = str(result.stdout.decode("utf-8"))
     os.remove(igc_file_name)
